@@ -1,0 +1,32 @@
+body {
+  margin: 0;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #f97316 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #f97316;
+  border-radius: 999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-button,
+.custom-scrollbar::-webkit-scrollbar-button:start:decrement,
+.custom-scrollbar::-webkit-scrollbar-button:end:increment,
+.custom-scrollbar::-webkit-scrollbar-button:vertical:increment,
+.custom-scrollbar::-webkit-scrollbar-button:vertical:decrement {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
