@@ -1,6 +1,7 @@
 import type { SignUpData, SignInData, CustomUser, ConfirmResetData, UpdateProfileData } from '../types';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
+import { ensureUserProfileDocument, persistUserPhoto } from './userProfileService';
 
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 
@@ -97,7 +98,11 @@ export const signUp = async ({ name, email, password, birthday, cpf }: SignUpDat
     if (!data.user) {
       throw new Error(data.msg || "Ocorreu um erro ao criar a conta.");
     }
-    return data.user;
+    const enriched = await ensureUserProfileDocument(data.user);
+    if (enriched.isActive === false) {
+      throw new Error('Seu acesso está suspenso. Procure um administrador.');
+    }
+    return enriched;
 };
 
 /**
@@ -114,7 +119,11 @@ export const signIn = async ({ email, password }: SignInData): Promise<CustomUse
     if (!data.user) {
       throw new Error(data.msg || "Ocorreu um erro ao fazer login.");
     }
-    return data.user;
+    const enriched = await ensureUserProfileDocument(data.user);
+    if (enriched.isActive === false) {
+      throw new Error('Seu acesso está suspenso. Procure um administrador.');
+    }
+    return enriched;
 };
 
 /**
@@ -153,7 +162,12 @@ export const updateProfile = async (updateData: UpdateProfileData): Promise<Cust
     if (!data.user) {
         throw new Error(data.msg || "Ocorreu um erro ao atualizar o perfil.");
     }
-    return data.user;
+
+    if ('photoURL' in payload) {
+        await persistUserPhoto(updateData.email, payload.photoURL ?? null);
+    }
+
+    return ensureUserProfileDocument(data.user);
 };
 
 

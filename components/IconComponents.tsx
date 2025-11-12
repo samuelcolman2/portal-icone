@@ -229,8 +229,15 @@ export const ChipIcon: React.FC<IconProps> = (props) => (
 
 export const Cog6ToothIcon: React.FC<IconProps> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.008 1.11-1.226.55-.218 1.192-.218 1.742 0 .55.218 1.02.684 1.11 1.226M13.5 9.75a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0zm-3.375-1.5a.75.75 0 0 0-.75.75V9.75a.75.75 0 0 0 .75.75h1.5a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-1.5z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 8.25c.397-1.133.397-2.367 0-3.5M9.75 8.25c-.397-1.133-.397-2.367 0-3.5M14.25 15.75c.397 1.133.397 2.367 0 3.5M9.75 15.75c-.397 1.133-.397 2.367 0 3.5m6-6c1.133.397 2.367.397 3.5 0m-3.5 0c1.133-.397 1.133-1.633 0-2.03M5.25 12c-1.133.397-2.367.397-3.5 0m3.5 0c-1.133-.397-1.133-1.633 0-2.03m10.5 2.03c1.133.397 1.133 1.633 0 2.03m-10.5-2.03c-1.133.397-1.133 1.633 0 2.03m10.5-4.5c1.133-.397 2.367-.397 3.5 0m-14 0c-1.133-.397-2.367-.397-3.5 0m14 0c1.133.397 1.133-1.633 0-2.03M5.25 10.5c-1.133-.397-1.133-1.633 0-2.03" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+export const ShieldCheckIcon: React.FC<IconProps> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l7.5 3v6c0 4.28-3.06 8.26-7.5 9.75C7.06 20.26 4 16.28 4 12V6l8-3z" />
   </svg>
 );
 

@@ -1,9 +1,13 @@
+export type UserRole = 'user' | 'admin';
+
 export interface CustomUser {
   displayName: string;
   email: string;
   photoURL?: string; // Base64 data URL
   birthday?: string; // YYYY-MM-DD format
-  cpf?: string; 
+  cpf?: string;
+  role?: UserRole;
+  isActive?: boolean;
 }
 
 export interface TeamMember {

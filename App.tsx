@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Announcements from './components/Announcements';
 import TeamDirectory from './components/TeamDirectory';
@@ -9,6 +9,7 @@ import PedagogicalView from './components/PedagogicalView';
 import NativosView from './components/NativosView';
 import FinanceiroView from './components/FinanceiroView';
 import TecnologiaView from './components/TecnologiaView';
+import AdminView from './components/AdminView';
 import LoginModal from './components/LoginModal';
 import SignUpModal from './components/SignUpModal';
 import ForgotPasswordModal from './components/ForgotPasswordModal';
@@ -17,6 +18,7 @@ import EditProfileModal from './components/EditProfileModal';
 import BirthdayModal from './components/BirthdayModal';
 import type { CustomUser, SignUpData } from './types';
 import { logout as logoutService, signUp as signUpService } from './services/authService';
+import { ensureUserProfileDocument, listenToUserAccess } from './services/userProfileService';
 
 type ModalType = 'login' | 'signup' | 'forgotPassword' | 'resetPassword' | 'editProfile' | 'birthday' | null;
 
@@ -47,15 +49,24 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       setAuthLoading(true);
       try {
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
-          setCurrentUser(JSON.parse(storedUser));
+          const parsed: CustomUser = JSON.parse(storedUser);
+          const enriched = await ensureUserProfileDocument(parsed);
+          if (enriched.isActive === false) {
+            await logoutService();
+            localStorage.removeItem('currentUser');
+            setCurrentUser(null);
+            return;
+          }
+          setCurrentUser(enriched);
+          localStorage.setItem('currentUser', JSON.stringify(enriched));
         }
       } catch (error) {
-        console.error("Failed to parse stored user", error);
+        console.error("Failed to hydrate stored user", error);
         localStorage.removeItem('currentUser');
       } finally {
         setAuthLoading(false);
@@ -83,11 +94,29 @@ const App: React.FC = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
   
-  const handleLogout = async () => {
-    await logoutService();
-    setCurrentUser(null);
-    setActiveView('Home');
-  };
+  const handleLogout = useCallback(
+    async (reason?: string) => {
+      await logoutService();
+      setCurrentUser(null);
+      setActiveView('Home');
+      if (reason) {
+        alert(reason);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!currentUser?.email) return;
+    const unsubscribe = listenToUserAccess(currentUser.email, (isActive) => {
+      if (!isActive) {
+        handleLogout('Seu acesso foi revogado.');
+      }
+    });
+    return () => {
+      unsubscribe && unsubscribe();
+    };
+  }, [currentUser?.email, handleLogout]);
 
   const openModal = (modal: ModalType) => {
     setSignUpError(null);
@@ -154,6 +183,8 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col overflow-y-auto">
         {activeView === 'Home' ? (
           <Home />
+        ) : activeView === 'Admin' ? (
+          <AdminView currentUser={currentUser} />
         ) : activeView === 'RH' ? (
           <RhView />
         ) : activeView === 'Financeiro' ? (
