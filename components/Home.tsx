@@ -86,8 +86,19 @@ const SUGGESTIONS_ENDPOINT =
 const SUGGESTION_LIST_ID = 'portal-search-suggestions';
 const MAX_SUGGESTION_CACHE_SIZE = 25;
 const SUGGESTION_CALLBACK_PREFIX = '__portalSuggestCb__';
+const URL_REGEX =
+    /^(https?:\/\/)?(([\w-]+\.)+[a-z\u00c0-\u017f]{2,}|localhost|\d{1,3}(\.\d{1,3}){3})(:\d+)?(\/[^\s]*)?$/i;
 
 const normalizeSuggestionKey = (value: string) => value.trim().toLowerCase();
+const isLikelyUrl = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || /\s/.test(trimmed)) return false;
+    return URL_REGEX.test(trimmed);
+};
+const normalizeUrl = (value: string) => {
+    if (/^[a-z]+:\/\//i.test(value)) return value;
+    return `https://${value}`;
+};
 
 const Home: React.FC = () => {
     const [query, setQuery] = useState('');
@@ -138,6 +149,19 @@ const Home: React.FC = () => {
             </>
         );
     };
+
+    const tryNavigateToUrl = useCallback(
+        (term: string) => {
+            if (!isLikelyUrl(term)) {
+                return false;
+            }
+            const target = normalizeUrl(term);
+            window.open(target, '_blank', 'noopener,noreferrer');
+            setHasResults(false);
+            return true;
+        },
+        [],
+    );
 
     const cleanupPendingSuggestionRequest = useCallback(() => {
         const pending = suggestionJsonpRef.current;
@@ -245,9 +269,12 @@ const Home: React.FC = () => {
         event.preventDefault();
         const term = query.trim();
         if (!term) return;
-        const ran = executeSearch(term);
-        if (!ran) {
-            console.warn('Google CSE ainda está carregando.');
+        const navigated = tryNavigateToUrl(term);
+        if (!navigated) {
+            const ran = executeSearch(term);
+            if (!ran) {
+                console.warn('Google CSE ainda está carregando.');
+            }
         }
         cleanupPendingSuggestionRequest();
         setCanShowSuggestions(false);
@@ -255,6 +282,9 @@ const Home: React.FC = () => {
         setIsSuggestionOpen(false);
         setHighlightIndex(-1);
         inputRef.current?.blur();
+        if (navigated) {
+            setQuery('');
+        }
     };
 
     const fetchSuggestions = useCallback(
@@ -343,7 +373,11 @@ const Home: React.FC = () => {
         cleanupPendingSuggestionRequest();
         setCanShowSuggestions(false);
         inputRef.current?.blur();
-        executeSearch(value);
+        if (!tryNavigateToUrl(value)) {
+            executeSearch(value);
+        } else {
+            setQuery('');
+        }
     };
 
     const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {

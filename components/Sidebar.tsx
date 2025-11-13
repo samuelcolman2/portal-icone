@@ -31,17 +31,25 @@ interface SidebarProps {
   onEditProfileClick: () => void;
 }
 
-const menuItems = [
+interface MenuItem {
+  label: string;
+  icon: typeof HomeIcon;
+  view: string;
+  requiresAuth?: boolean;
+}
+
+const menuItems: MenuItem[] = [
   { label: 'Home', icon: HomeIcon, view: 'Home' },
   {
     label: 'Tecnologia e Inovação',
     icon: ChipIcon,
     view: 'Tecnologia e Inovação',
+    requiresAuth: true,
   },
-  { label: 'RH', icon: UsersIcon, view: 'RH' },
-  { label: 'Financeiro', icon: ChartBarIcon, view: 'Financeiro' },
-  { label: 'Pedagógico', icon: AcademicCapIcon, view: 'Pedagógico' },
-  { label: 'Nativos', icon: ProductsIcon, view: 'Nativos' },
+  { label: 'RH', icon: UsersIcon, view: 'RH', requiresAuth: true },
+  { label: 'Financeiro', icon: ChartBarIcon, view: 'Financeiro', requiresAuth: true },
+  { label: 'Pedagógico', icon: AcademicCapIcon, view: 'Pedagógico', requiresAuth: true },
+  { label: 'Nativos', icon: ProductsIcon, view: 'Nativos', requiresAuth: true },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -58,6 +66,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const visibleMenuItems = currentUser
+    ? menuItems
+    : menuItems.filter((item) => !item.requiresAuth);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -136,7 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <nav className="flex-1">
         <ul>
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <li key={item.view} className="mb-2">
               <a
                 href="#"
