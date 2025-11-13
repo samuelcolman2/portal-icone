@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import Modal from './Modal';
 import type { SignUpData } from '../types';
 import { EyeIcon, EyeSlashIcon } from './IconComponents';
@@ -14,25 +14,10 @@ const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onLoginClick, onSign
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [cpf, setCpf] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const formatCPF = (value: string) => {
-    return value
-      .replace(/\D/g, '') // Remove todos os não dígitos
-      .replace(/(\d{3})(\d)/, '$1.$2') // Adiciona ponto após o 3º dígito
-      .replace(/(\d{3})(\d)/, '$1.$2') // Adiciona ponto após o 6º dígito
-      .replace(/(\d{3})(\d{1,2})$/, '$1-$2') // Adiciona traço antes dos últimos 2 dígitos
-      .substring(0, 14); // Limita o comprimento
-  };
-
-  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCpf(formatCPF(e.target.value));
-  };
-
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -45,14 +30,10 @@ const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onLoginClick, onSign
         setError("As senhas não coincidem.");
         return;
     }
-    if (cpf.replace(/\D/g, '').length !== 11) {
-      setError("O CPF deve conter 11 dígitos.");
-      return;
-    }
 
     setIsLoading(true);
     
-    onSignUpDetails({ name, email, password, cpf });
+    onSignUpDetails({ name, email, password });
   };
 
   return (
@@ -66,17 +47,6 @@ const SignUpModal: React.FC<SignUpModalProps> = ({ onClose, onLoginClick, onSign
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
-           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">CPF</label>
-            <input
-              type="text"
-              value={cpf}
-              onChange={handleCpfChange}
-              placeholder="000.000.000-00"
               className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
             />

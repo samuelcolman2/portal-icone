@@ -163,6 +163,10 @@ const Home: React.FC = () => {
         [],
     );
 
+    const openGoogleSearchResults = useCallback((term: string) => {
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(term)}`, '_blank', 'noopener,noreferrer');
+    }, []);
+
     const cleanupPendingSuggestionRequest = useCallback(() => {
         const pending = suggestionJsonpRef.current;
         if (!pending) return;
@@ -177,6 +181,21 @@ const Home: React.FC = () => {
         }
         suggestionJsonpRef.current = null;
     }, []);
+
+    const finalizeSearchInteraction = useCallback(
+        (shouldClearQuery = false) => {
+            cleanupPendingSuggestionRequest();
+            setCanShowSuggestions(false);
+            setSuggestions([]);
+            setIsSuggestionOpen(false);
+            setHighlightIndex(-1);
+            inputRef.current?.blur();
+            if (shouldClearQuery) {
+                setQuery('');
+            }
+        },
+        [cleanupPendingSuggestionRequest],
+    );
 
     const renderSearchElement = useCallback(() => {
         const googleObj = window.google;
@@ -276,16 +295,13 @@ const Home: React.FC = () => {
                 console.warn('Google CSE ainda está carregando.');
             }
         }
-        cleanupPendingSuggestionRequest();
-        setCanShowSuggestions(false);
-        setSuggestions([]);
-        setIsSuggestionOpen(false);
-        setHighlightIndex(-1);
-        inputRef.current?.blur();
-        if (navigated) {
-            setQuery('');
-        }
+        finalizeSearchInteraction(navigated);
     };
+
+    const handleGoogleButtonClick = useCallback(() => {
+        window.open('https://www.google.com/', '_blank', 'noopener,noreferrer');
+        finalizeSearchInteraction(false);
+    }, [finalizeSearchInteraction]);
 
     const fetchSuggestions = useCallback(
         (term: string) => {
@@ -367,17 +383,11 @@ const Home: React.FC = () => {
 
     const handleSuggestionSelect = (value: string) => {
         setQuery(value);
-        setSuggestions([]);
-        setIsSuggestionOpen(false);
-        setHighlightIndex(-1);
-        cleanupPendingSuggestionRequest();
-        setCanShowSuggestions(false);
-        inputRef.current?.blur();
-        if (!tryNavigateToUrl(value)) {
+        const navigated = tryNavigateToUrl(value);
+        if (!navigated) {
             executeSearch(value);
-        } else {
-            setQuery('');
         }
+        finalizeSearchInteraction(navigated);
     };
 
     const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -408,9 +418,9 @@ const Home: React.FC = () => {
     const activeDescendantId = highlightIndex >= 0 ? `suggestion-option-${highlightIndex}` : undefined;
 
     return (
-        <div className="flex flex-col h-full flex-1 bg-[#0F172A] text-gray-100">
+        <div className="flex flex-col h-full flex-1 bg-gray-50 text-slate-900 dark:bg-[#0F172A] dark:text-gray-100">
             <header className="flex items-center justify-end p-4 sm:p-6">
-                <div className="flex items-center space-x-4 text-sm text-gray-100">
+                <div className="flex items-center space-x-4 text-sm text-slate-600 dark:text-gray-100">
                     <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer" className="hover:underline">Gmail</a>
                     <a href="https://www.google.com/imghp" target="_blank" rel="noopener noreferrer" className="hover:underline">Imagens</a>
                     <AppLauncher />
@@ -507,12 +517,13 @@ const Home: React.FC = () => {
                         )}
                     </div>
                     {showHero && (
-                        <div className="flex justify-center mt-6 space-x-4">
-                            <button type="submit" className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-sm">
+                        <div className="flex justify-center mt-6">
+                            <button
+                                type="button"
+                                onClick={handleGoogleButtonClick}
+                                className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-sm"
+                            >
                                 Pesquisa Google
-                            </button>
-                            <button type="submit" name="btnI" value="1" className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-sm">
-                                Estou com sorte
                             </button>
                         </div>
                     )}

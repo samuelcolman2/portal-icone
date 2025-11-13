@@ -206,11 +206,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               </p>
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>Editar perfil</span>
-                {currentUser.role && (
-                  <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-700 dark:bg-slate-700 dark:text-slate-100">
-                    {currentUser.role}
-                  </span>
-                )}
               </div>
             </div>
           </button>
@@ -336,3 +331,5 @@ const Sidebar: React.FC<SidebarProps> = ({
 };
 
 export default Sidebar;
+
+

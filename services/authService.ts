@@ -84,7 +84,7 @@ async function postToAppsScript(payload: object): Promise<any> {
  * Creates a new user account via Apps Script and RTDB using POST.
  * The backend is expected to handle the 'signUp' action in a doPost function.
  */
-export const signUp = async ({ name, email, password, birthday, cpf }: SignUpData): Promise<CustomUser> => {
+export const signUp = async ({ name, email, password, birthday }: SignUpData): Promise<CustomUser> => {
     const passwordHash = await sha256(password);
     const data = await postToAppsScript({
         action: 'signUp',
@@ -92,7 +92,6 @@ export const signUp = async ({ name, email, password, birthday, cpf }: SignUpDat
         email,
         passwordHash,
         birthday,
-        cpf,
     });
     
     if (!data.user) {

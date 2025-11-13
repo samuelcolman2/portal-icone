@@ -40,7 +40,6 @@ export interface SignUpData {
   email: string;
   password: string;
   birthday: string; // YYYY-MM-DD format
-  cpf: string;
 }
 
 export interface SignInData {
