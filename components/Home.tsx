@@ -81,6 +81,14 @@ input.gsc-search-button-v2 {
 }
 `;
 
+const SUGGESTIONS_ENDPOINT =
+    'https://suggestqueries.google.com/complete/search?client=firefox&hl=pt-BR&q=';
+const SUGGESTION_LIST_ID = 'portal-search-suggestions';
+const MAX_SUGGESTION_CACHE_SIZE = 25;
+const SUGGESTION_CALLBACK_PREFIX = '__portalSuggestCb__';
+
+const normalizeSuggestionKey = (value: string) => value.trim().toLowerCase();
+
 const Home: React.FC = () => {
     const [query, setQuery] = useState('');
     const [hasResults, setHasResults] = useState(false);
@@ -89,8 +97,62 @@ const Home: React.FC = () => {
     const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
     const [highlightIndex, setHighlightIndex] = useState(-1);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const suggestionCacheRef = useRef<Map<string, string[]>>(new Map());
+    const suggestionJsonpRef = useRef<{ script?: HTMLScriptElement; callbackName?: string } | null>(null);
+    const [canShowSuggestions, setCanShowSuggestions] = useState(true);
     const logoUrl = 'https://iconecolegioecurso.com.br/wp-content/uploads/2022/08/xlogo_icone_site.png.pagespeed.ic_.QgXP3GszLC.webp';
     const showHero = !hasResults;
+
+    const cacheSuggestions = useCallback((term: string, payload: string[]) => {
+        const key = normalizeSuggestionKey(term);
+        if (!key) return;
+        const cache = suggestionCacheRef.current;
+        cache.set(key, payload);
+        if (cache.size > MAX_SUGGESTION_CACHE_SIZE) {
+            const firstKey = cache.keys().next().value;
+            if (firstKey) {
+                cache.delete(firstKey);
+            }
+        }
+    }, []);
+
+    const readCachedSuggestions = useCallback((term: string) => {
+        const key = normalizeSuggestionKey(term);
+        if (!key) return undefined;
+        return suggestionCacheRef.current.get(key);
+    }, []);
+
+    const highlightQueryInSuggestion = (text: string) => {
+        const trimmedQuery = query.trim();
+        if (!trimmedQuery) return text;
+        const lowerText = text.toLowerCase();
+        const lowerQuery = trimmedQuery.toLowerCase();
+        const startIndex = lowerText.indexOf(lowerQuery);
+        if (startIndex === -1) return text;
+        const endIndex = startIndex + trimmedQuery.length;
+        return (
+            <>
+                {text.slice(0, startIndex)}
+                <span className="text-orange-400">{text.slice(startIndex, endIndex)}</span>
+                {text.slice(endIndex)}
+            </>
+        );
+    };
+
+    const cleanupPendingSuggestionRequest = useCallback(() => {
+        const pending = suggestionJsonpRef.current;
+        if (!pending) return;
+        if (pending.callbackName) {
+            const win = window as Record<string, any>;
+            if (typeof win[pending.callbackName] === 'function') {
+                delete win[pending.callbackName];
+            }
+        }
+        if (pending.script?.parentNode) {
+            pending.script.parentNode.removeChild(pending.script);
+        }
+        suggestionJsonpRef.current = null;
+    }, []);
 
     const renderSearchElement = useCallback(() => {
         const googleObj = window.google;
@@ -146,20 +208,37 @@ const Home: React.FC = () => {
 
     const executeSearch = useCallback(
         (term: string) => {
+            const sanitizedTerm = term.trim();
+            if (!sanitizedTerm) {
+                return false;
+            }
+
+            const openFallbackSearch = () => {
+                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(sanitizedTerm)}`;
+                window.open(searchUrl, '_blank', 'noopener,noreferrer');
+            };
+
             const googleObj = window.google;
-            const cseElement = googleObj?.search?.cse?.element;
+            let cseElement = googleObj?.search?.cse?.element;
             if (!cseElement) {
-                return false;
+                const rendered = renderSearchElement();
+                if (rendered) {
+                    cseElement = window.google?.search?.cse?.element;
+                }
             }
-            const element = cseElement.getElement(CSE_ELEMENT_GNAME);
-            if (!element) {
-                return false;
+            if (cseElement) {
+                const element = cseElement.getElement(CSE_ELEMENT_GNAME);
+                if (element) {
+                    element.execute(sanitizedTerm);
+                    setHasResults(true);
+                    return true;
+                }
             }
-            element.execute(term);
-            setHasResults(true);
-            return true;
+
+            openFallbackSearch();
+            return false;
         },
-        [],
+        [renderSearchElement],
     );
 
     const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
@@ -170,72 +249,100 @@ const Home: React.FC = () => {
         if (!ran) {
             console.warn('Google CSE ainda está carregando.');
         }
+        cleanupPendingSuggestionRequest();
+        setCanShowSuggestions(false);
         setSuggestions([]);
         setIsSuggestionOpen(false);
         setHighlightIndex(-1);
+        inputRef.current?.blur();
     };
 
     const fetchSuggestions = useCallback(
-        async (term: string, signal: AbortSignal) => {
-            if (!term) {
+        (term: string) => {
+            const sanitizedTerm = term.trim();
+            if (!sanitizedTerm) {
                 setSuggestions([]);
+                setIsSuggestionOpen(false);
+                setHighlightIndex(-1);
+                cleanupPendingSuggestionRequest();
                 return;
             }
-            try {
-                setIsFetchingSuggestions(true);
-                const response = await fetch(
-                    `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(
-                        term,
-                    )}`,
-                    { signal },
-                );
-                if (!response.ok) {
-                    throw new Error('Falha ao carregar sugestões');
-                }
-                const data = await response.json();
-                if (Array.isArray(data) && Array.isArray(data[1])) {
-                    const payload = (data[1] as string[]).slice(0, 6).filter(Boolean);
-                    setSuggestions(payload);
-                    setIsSuggestionOpen(payload.length > 0);
-                    setHighlightIndex(payload.length ? 0 : -1);
-                } else {
-                    setSuggestions([]);
-                    setIsSuggestionOpen(false);
-                    setHighlightIndex(-1);
-                }
-            } catch (error) {
-                if ((error as Error).name !== 'AbortError') {
-                    console.error(error);
-                }
-            } finally {
-                setIsFetchingSuggestions(false);
+
+            const cached = readCachedSuggestions(sanitizedTerm);
+            if (cached) {
+                setSuggestions(cached);
+                setIsSuggestionOpen(canShowSuggestions && cached.length > 0);
+                setHighlightIndex(cached.length ? 0 : -1);
+                cleanupPendingSuggestionRequest();
+                return;
             }
+
+            cleanupPendingSuggestionRequest();
+            setIsFetchingSuggestions(true);
+
+            const callbackName = `${SUGGESTION_CALLBACK_PREFIX}${Date.now().toString(36)}${Math.random()
+                .toString(36)
+                .slice(2, 7)}`;
+            const win = window as Record<string, any>;
+
+            win[callbackName] = (data: any) => {
+                const payload =
+                    Array.isArray(data) && Array.isArray(data[1])
+                        ? (data[1] as string[]).slice(0, 6).filter(Boolean)
+                        : [];
+                cacheSuggestions(sanitizedTerm, payload);
+                setSuggestions(payload);
+                setIsSuggestionOpen(canShowSuggestions && payload.length > 0);
+                setHighlightIndex(payload.length ? 0 : -1);
+                setIsFetchingSuggestions(false);
+                cleanupPendingSuggestionRequest();
+            };
+
+            const script = document.createElement('script');
+            script.src = `${SUGGESTIONS_ENDPOINT}${encodeURIComponent(sanitizedTerm)}&callback=${callbackName}`;
+            script.async = true;
+            script.onerror = () => {
+                console.error('Não foi possível carregar sugestões de pesquisa.');
+                setIsFetchingSuggestions(false);
+                setSuggestions([]);
+                setIsSuggestionOpen(false);
+                setHighlightIndex(-1);
+                cleanupPendingSuggestionRequest();
+            };
+            document.body.appendChild(script);
+            suggestionJsonpRef.current = { script, callbackName };
         },
-        [],
+        [cacheSuggestions, canShowSuggestions, cleanupPendingSuggestionRequest, readCachedSuggestions],
     );
 
     useEffect(() => {
-        if (!query.trim()) {
+        const trimmed = query.trim();
+        if (!trimmed) {
             setSuggestions([]);
             setIsSuggestionOpen(false);
             setHighlightIndex(-1);
+            setIsFetchingSuggestions(false);
+            cleanupPendingSuggestionRequest();
             return;
         }
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-            fetchSuggestions(query.trim(), controller.signal);
+        const timeoutId = window.setTimeout(() => {
+            fetchSuggestions(trimmed);
         }, 200);
 
         return () => {
             clearTimeout(timeoutId);
-            controller.abort();
+            cleanupPendingSuggestionRequest();
         };
-    }, [query, fetchSuggestions]);
+    }, [cleanupPendingSuggestionRequest, fetchSuggestions, query]);
 
     const handleSuggestionSelect = (value: string) => {
         setQuery(value);
         setSuggestions([]);
         setIsSuggestionOpen(false);
+        setHighlightIndex(-1);
+        cleanupPendingSuggestionRequest();
+        setCanShowSuggestions(false);
+        inputRef.current?.blur();
         executeSearch(value);
     };
 
@@ -250,6 +357,9 @@ const Home: React.FC = () => {
         } else if (event.key === 'Enter' && highlightIndex >= 0) {
             event.preventDefault();
             handleSuggestionSelect(suggestions[highlightIndex]);
+        } else if (event.key === 'Tab' && highlightIndex >= 0) {
+            event.preventDefault();
+            handleSuggestionSelect(suggestions[highlightIndex]);
         } else if (event.key === 'Escape') {
             setIsSuggestionOpen(false);
         }
@@ -260,6 +370,8 @@ const Home: React.FC = () => {
             setIsSuggestionOpen(false);
         }, 100);
     };
+
+    const activeDescendantId = highlightIndex >= 0 ? `suggestion-option-${highlightIndex}` : undefined;
 
     return (
         <div className="flex flex-col h-full flex-1 bg-[#0F172A] text-gray-100">
@@ -301,27 +413,45 @@ const Home: React.FC = () => {
                             ref={inputRef}
                             type="search"
                             name="q"
+                            role="combobox"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
                             value={query}
                             onChange={(e) => {
                                 setQuery(e.target.value);
+                                setCanShowSuggestions(true);
                                 setIsSuggestionOpen(true);
                             }}
                             onKeyDown={handleInputKeyDown}
                             onFocus={() => {
-                                if (suggestions.length) {
+                                if (suggestions.length && canShowSuggestions) {
                                     setIsSuggestionOpen(true);
                                 }
                             }}
                             onBlur={handleBlur}
+                            aria-autocomplete="list"
+                            aria-controls={SUGGESTION_LIST_ID}
+                            aria-expanded={isSuggestionOpen}
+                            aria-haspopup="listbox"
+                            aria-activedescendant={activeDescendantId}
                             placeholder="Pesquisar no Google ou digitar um URL"
                             className="w-full p-4 pl-12 text-gray-100 bg-[#1F2937] border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-slate-500 shadow-inner"
                             required
                         />
-                        {isSuggestionOpen && suggestions.length > 0 && (
-                            <ul className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-slate-700 bg-[#11182b] text-sm shadow-2xl custom-scrollbar">
+                        {isSuggestionOpen && (suggestions.length > 0 || isFetchingSuggestions) && (
+                            <ul
+                                id={SUGGESTION_LIST_ID}
+                                role="listbox"
+                                aria-label="Sugestões de pesquisa"
+                                className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-slate-700 bg-[#11182b] text-sm shadow-2xl custom-scrollbar"
+                            >
                                 {suggestions.map((item, index) => (
                                     <li
                                         key={item}
+                                        id={`suggestion-option-${index}`}
+                                        role="option"
+                                        aria-selected={highlightIndex === index}
                                         className={`cursor-pointer px-4 py-3 text-slate-200 hover:bg-[#1c243a] ${
                                             highlightIndex === index ? 'bg-[#1c243a]' : ''
                                         }`}
@@ -329,8 +459,9 @@ const Home: React.FC = () => {
                                             event.preventDefault();
                                             handleSuggestionSelect(item);
                                         }}
+                                        onMouseEnter={() => setHighlightIndex(index)}
                                     >
-                                        {item}
+                                        {highlightQueryInSuggestion(item)}
                                     </li>
                                 ))}
                                 {isFetchingSuggestions && (
