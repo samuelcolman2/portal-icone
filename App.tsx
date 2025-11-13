@@ -182,7 +182,7 @@ const App: React.FC = () => {
       />
       <main className="flex-1 flex flex-col overflow-y-auto">
         {activeView === 'Home' ? (
-          <Home />
+          <Home currentUser={currentUser} />
         ) : activeView === 'Admin' ? (
           <AdminView currentUser={currentUser} />
         ) : activeView === 'RH' ? (

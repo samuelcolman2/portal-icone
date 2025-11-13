@@ -1,7 +1,9 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AppLauncher from './AppLauncher';
+import Modal from './Modal';
 import { SearchIcon } from './IconComponents';
+import type { CustomUser } from '../types';
 
 declare global {
   interface Window {
@@ -100,7 +102,32 @@ const normalizeUrl = (value: string) => {
     return `https://${value}`;
 };
 
-const Home: React.FC = () => {
+const buildFaviconUrl = (value: string) => {
+    try {
+        const url = new URL(value);
+        return `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(url.origin)}`;
+    } catch {
+        return 'https://www.google.com/s2/favicons?sz=128&domain_url=https://www.google.com';
+    }
+};
+
+const ensureUrlProtocol = (value: string) => {
+    if (!value) return '';
+    return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+};
+
+interface Shortcut {
+    id: string;
+    name: string;
+    url: string;
+    faviconUrl: string;
+}
+
+interface HomeProps {
+    currentUser: CustomUser | null;
+}
+
+const Home: React.FC<HomeProps> = ({ currentUser }) => {
     const [query, setQuery] = useState('');
     const [hasResults, setHasResults] = useState(false);
     const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -111,6 +138,10 @@ const Home: React.FC = () => {
     const suggestionCacheRef = useRef<Map<string, string[]>>(new Map());
     const suggestionJsonpRef = useRef<{ script?: HTMLScriptElement; callbackName?: string } | null>(null);
     const [canShowSuggestions, setCanShowSuggestions] = useState(true);
+    const [shortcuts, setShortcuts] = useState<Shortcut[]>([]);
+    const [isShortcutModalOpen, setIsShortcutModalOpen] = useState(false);
+    const [shortcutForm, setShortcutForm] = useState<{ id?: string; name: string; url: string }>({ name: '', url: '' });
+    const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
     const logoUrl = 'https://iconecolegioecurso.com.br/wp-content/uploads/2022/08/xlogo_icone_site.png.pagespeed.ic_.QgXP3GszLC.webp';
     const showHero = !hasResults;
 
@@ -132,6 +163,8 @@ const Home: React.FC = () => {
         if (!key) return undefined;
         return suggestionCacheRef.current.get(key);
     }, []);
+
+    const storageKey = currentUser?.email ? `shortcuts:${currentUser.email}` : null;
 
     const highlightQueryInSuggestion = (text: string) => {
         const trimmedQuery = query.trim();
@@ -163,8 +196,39 @@ const Home: React.FC = () => {
         [],
     );
 
-    const openGoogleSearchResults = useCallback((term: string) => {
-        window.open(`https://www.google.com/search?q=${encodeURIComponent(term)}`, '_blank', 'noopener,noreferrer');
+    useEffect(() => {
+        if (!storageKey) {
+            setShortcuts([]);
+            return;
+        }
+        try {
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                const parsed = JSON.parse(stored) as Shortcut[];
+                setShortcuts(parsed);
+            } else {
+                setShortcuts([]);
+            }
+        } catch (error) {
+            console.error('Failed to parse shortcuts', error);
+            setShortcuts([]);
+        }
+    }, [storageKey]);
+
+    useEffect(() => {
+        if (!storageKey) return;
+        localStorage.setItem(storageKey, JSON.stringify(shortcuts));
+    }, [shortcuts, storageKey]);
+
+    useEffect(() => {
+        const handleGlobalClick = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (!target.closest('[data-shortcut-menu]')) {
+                setMenuOpenId(null);
+            }
+        };
+        window.addEventListener('click', handleGlobalClick);
+        return () => window.removeEventListener('click', handleGlobalClick);
     }, []);
 
     const cleanupPendingSuggestionRequest = useCallback(() => {
@@ -302,6 +366,56 @@ const Home: React.FC = () => {
         window.open('https://www.google.com/', '_blank', 'noopener,noreferrer');
         finalizeSearchInteraction(false);
     }, [finalizeSearchInteraction]);
+
+    const handleOpenShortcutModal = useCallback(
+        (shortcut?: Shortcut) => {
+            if (!currentUser) return;
+            if (shortcut) {
+                setShortcutForm({ id: shortcut.id, name: shortcut.name, url: shortcut.url });
+            } else {
+                setShortcutForm({ name: '', url: '' });
+            }
+            setIsShortcutModalOpen(true);
+            setMenuOpenId(null);
+        },
+        [currentUser],
+    );
+
+    const handleShortcutDelete = useCallback((id: string) => {
+        setShortcuts((prev) => prev.filter((shortcut) => shortcut.id !== id));
+        setMenuOpenId((current) => (current === id ? null : current));
+    }, []);
+
+    const closeShortcutModal = useCallback(() => {
+        setIsShortcutModalOpen(false);
+        setShortcutForm({ name: '', url: '' });
+    }, []);
+
+    const handleShortcutSubmit = useCallback(
+        (event: React.FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            const trimmedName = shortcutForm.name.trim();
+            const trimmedUrl = ensureUrlProtocol(shortcutForm.url.trim());
+            if (!trimmedName || !trimmedUrl) {
+                return;
+            }
+            const faviconUrl = buildFaviconUrl(trimmedUrl);
+            if (shortcutForm.id) {
+                setShortcuts((prev) =>
+                    prev.map((shortcut) =>
+                        shortcut.id === shortcutForm.id
+                            ? { ...shortcut, name: trimmedName, url: trimmedUrl, faviconUrl }
+                            : shortcut,
+                    ),
+                );
+            } else {
+                const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`;
+                setShortcuts((prev) => [...prev, { id, name: trimmedName, url: trimmedUrl, faviconUrl }]);
+            }
+            closeShortcutModal();
+        },
+        [closeShortcutModal, shortcutForm],
+    );
 
     const fetchSuggestions = useCallback(
         (term: string) => {
@@ -529,6 +643,83 @@ const Home: React.FC = () => {
                     )}
                 </form>
 
+                {currentUser && (
+                    <section
+                        className={`w-full ${
+                            showHero ? 'sm:max-w-xl md:max-w-2xl' : 'sm:max-w-2xl md:max-w-3xl'
+                        } mt-8`}
+                    >
+                        <div className={`flex flex-wrap gap-4 ${showHero ? 'justify-center' : ''}`}>
+                            <button
+                                type="button"
+                                onClick={() => handleOpenShortcutModal()}
+                                className="flex w-10 h-10 items-center justify-center text-2xl font-semibold text-white"
+                            >
+                                +
+                            </button>
+                            {shortcuts.map((shortcut) => (
+                                <div
+                                    key={shortcut.id}
+                                    className="group relative w-36 cursor-pointer rounded-2xl border border-transparent bg-white/90 p-4 text-center text-slate-700 shadow hover:border-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                                    onClick={() => window.open(shortcut.url, '_blank', 'noopener,noreferrer')}
+                                >
+                                    <img
+                                        src={shortcut.faviconUrl}
+                                        alt=""
+                                        className="mx-auto h-12 w-12 rounded-full border border-slate-200 bg-white object-contain p-2 dark:border-slate-700"
+                                        onError={(event) => {
+                                            event.currentTarget.onerror = null;
+                                            event.currentTarget.src =
+                                                'https://www.google.com/s2/favicons?sz=128&domain_url=https://www.google.com';
+                                        }}
+                                    />
+                                    <p className="mt-2 text-sm font-medium truncate">{shortcut.name}</p>
+                                    <button
+                                        type="button"
+                                        data-shortcut-menu
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            setMenuOpenId((current) => (current === shortcut.id ? null : shortcut.id));
+                                        }}
+                                        aria-label="Mais opcoes"
+                                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/60 text-white opacity-0 transition group-hover:opacity-100"
+                                    >
+                                        ...
+                                    </button>
+                                    {menuOpenId === shortcut.id && (
+                                        <div
+                                            data-shortcut-menu
+                                            className="absolute right-2 top-12 z-10 w-32 rounded-lg border border-slate-200 bg-white p-1 text-left text-sm shadow-lg dark:border-slate-700 dark:bg-slate-900"
+                                        >
+                                            <button
+                                                type="button"
+                                                className="flex w-full items-center rounded-md px-3 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    handleOpenShortcutModal(shortcut);
+                                                }}
+                                            >
+                                                Editar
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="flex w-full items-center rounded-md px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    handleShortcutDelete(shortcut.id);
+                                                }}
+                                            >
+                                                Excluir
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            
+                        </div>
+                    </section>
+                )}
+
                 <div className="w-full sm:max-w-2xl md:max-w-3xl mt-10">
                     <div
                         id="portal-search-results"
@@ -539,6 +730,58 @@ const Home: React.FC = () => {
                     />
                 </div>
             </main>
+
+            {isShortcutModalOpen && (
+                <Modal
+                    isOpen={isShortcutModalOpen}
+                    onClose={closeShortcutModal}
+                    title={shortcutForm.id ? 'Editar atalho' : 'Novo atalho'}
+                >
+                    <form onSubmit={handleShortcutSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                                Nome
+                            </label>
+                            <input
+                                type="text"
+                                value={shortcutForm.name}
+                                onChange={(event) => setShortcutForm((prev) => ({ ...prev, name: event.target.value }))}
+                                className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+                                URL
+                            </label>
+                            <input
+                                type="url"
+                                value={shortcutForm.url}
+                                onChange={(event) => setShortcutForm((prev) => ({ ...prev, url: event.target.value }))}
+                                placeholder="https://exemplo.com"
+                                className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                                required
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={closeShortcutModal}
+                                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={!shortcutForm.name.trim() || !shortcutForm.url.trim()}
+                                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                Salvar
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
         </div>
     );
 };
