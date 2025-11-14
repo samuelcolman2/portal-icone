@@ -650,13 +650,6 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                         } mt-8`}
                     >
                         <div className={`flex flex-wrap gap-4 ${showHero ? 'justify-center' : ''}`}>
-                            <button
-                                type="button"
-                                onClick={() => handleOpenShortcutModal()}
-                                className="flex w-10 h-10 items-center justify-center text-2xl font-semibold text-white"
-                            >
-                                +
-                            </button>
                             {shortcuts.map((shortcut) => (
                                 <div
                                     key={shortcut.id}
