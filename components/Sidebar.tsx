@@ -13,6 +13,7 @@ import {
   ProductsIcon,
   ShieldCheckIcon,
   SunIcon,
+  ShoppingCartIcon,
   UserCircleIcon,
   UsersIcon,
 } from './IconComponents';
@@ -48,6 +49,7 @@ const menuItems: MenuItem[] = [
   },
   { label: 'RH', icon: UsersIcon, view: 'RH', requiresAuth: true },
   { label: 'Financeiro', icon: ChartBarIcon, view: 'Financeiro', requiresAuth: true },
+  { label: 'Compras', icon: ShoppingCartIcon, view: 'Compras', requiresAuth: true },
   { label: 'Pedagógico', icon: AcademicCapIcon, view: 'Pedagógico', requiresAuth: true },
   { label: 'Nativos', icon: ProductsIcon, view: 'Nativos', requiresAuth: true },
 ];
@@ -164,8 +166,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               >
                 <item.icon className="h-6 w-6 flex-shrink-0" />
                 <span
-                  className={`ml-4 overflow-hidden whitespace-nowrap transition-all duration-200 ${
-                    isCollapsed ? 'w-0 opacity-0' : 'opacity-100'
+                  className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${
+                    isCollapsed ? 'ml-0 w-0 opacity-0' : 'ml-4 opacity-100'
                   }`}
                 >
                   {item.label}

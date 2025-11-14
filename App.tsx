@@ -8,6 +8,7 @@ import RhView from './components/RhView';
 import PedagogicalView from './components/PedagogicalView';
 import NativosView from './components/NativosView';
 import FinanceiroView from './components/FinanceiroView';
+import ComprasView from './components/ComprasView';
 import TecnologiaView from './components/TecnologiaView';
 import AdminView from './components/AdminView';
 import LoginModal from './components/LoginModal';
@@ -189,6 +190,8 @@ const App: React.FC = () => {
           <RhView />
         ) : activeView === 'Financeiro' ? (
           <FinanceiroView />
+        ) : activeView === 'Compras' ? (
+          <ComprasView />
         ) : activeView === 'Pedagógico' ? (
           <PedagogicalView />
         ) : activeView === 'Nativos' ? (
