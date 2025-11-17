@@ -24,7 +24,7 @@ const ComprasView: React.FC = () => {
           </div>
           <div className="mt-8">
             <a
-              href="https://compras-icone.netlify.app/"
+              href="https://iconeshop.netlify.app/"
               target="_blank"
               rel="noopener noreferrer"
               className="block text-center w-full bg-teal-500 text-white font-semibold py-3 px-6 rounded-2xl hover:bg-teal-600 transition-all duration-300 shadow-lg shadow-teal-500/20"
