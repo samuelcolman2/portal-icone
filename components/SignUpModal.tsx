@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import Modal from './Modal';
 import type { SignUpData } from '../types';
 import { EyeIcon, EyeSlashIcon } from './IconComponents';

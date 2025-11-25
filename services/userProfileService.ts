@@ -1,3 +1,4 @@
+
 import {
   doc,
   getDoc,
@@ -16,6 +17,7 @@ import { firestore, realtimeDb } from '../firebase';
 import type { CustomUser, UserRole } from '../types';
 
 const DEFAULT_ROLE: UserRole = 'user';
+const PENDING_ROLE: UserRole = 'pendente';
 const MAX_BASE64_LENGTH = 1024 * 1024; // ~1MB
 const PHOTO_COLLECTION = 'userPhotos';
 
@@ -78,7 +80,12 @@ const ensureRealtimeProfile = async (
 
   if (!snapshot.exists()) {
     const legacyData = await migrateLegacyKeyIfNeeded(user.email, key);
-    const role = (legacyData?.role as UserRole) || DEFAULT_ROLE;
+    // Alterado aqui: Novos usuários recebem DEFAULT_ROLE ('user') diretamente,
+    // em vez de PENDING_ROLE ('pendente').
+    const role =
+      (legacyData?.role as UserRole) ??
+      DEFAULT_ROLE;
+      
     const isActive =
       typeof legacyData?.isActive === 'boolean'
         ? legacyData.isActive
@@ -228,15 +235,39 @@ export const updateUserAccess = async (
   });
 };
 
+type AccessStatus = {
+  hasAccess: boolean;
+  reason: 'revoked' | 'pending' | null;
+};
+
 export const listenToUserAccess = (
   email: string,
-  callback: (isActive: boolean) => void,
+  callback: (status: AccessStatus) => void,
 ) => {
   if (!email) return () => {};
   const key = realtimeSafeKey(email);
-  const userRef = ref(realtimeDb, `users/${key}/isActive`);
+  const userRef = ref(realtimeDb, `users/${key}`);
   const unsubscribe = onValue(userRef, (snapshot) => {
-    callback(snapshot.val() !== false);
+    if (!snapshot.exists()) {
+      callback({ hasAccess: false, reason: 'revoked' });
+      return;
+    }
+
+    const data = snapshot.val() ?? {};
+    const isActive = data.isActive !== false;
+    const role: UserRole = (data.role as UserRole) ?? DEFAULT_ROLE;
+
+    if (!isActive) {
+      callback({ hasAccess: false, reason: 'revoked' });
+      return;
+    }
+
+    if (role === PENDING_ROLE) {
+      callback({ hasAccess: false, reason: 'pending' });
+      return;
+    }
+
+    callback({ hasAccess: true, reason: null });
   });
   return unsubscribe;
 };
@@ -260,6 +291,10 @@ export const listenToUsers = (
           displayName: (value.displayName as string) ?? email,
           role: (value.role as UserRole) ?? DEFAULT_ROLE,
           photoURL: photoURL ?? null,
+          birthday:
+            typeof value.birthday === 'string'
+              ? (value.birthday as string)
+              : undefined,
           isActive: value.isActive !== false,
         } satisfies CustomUser;
       }),

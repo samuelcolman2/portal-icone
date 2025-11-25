@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AcademicCapIcon,
@@ -30,6 +31,7 @@ interface SidebarProps {
   onLoginClick: () => void;
   onLogoutClick: () => void;
   onEditProfileClick: () => void;
+  onNotificationsClick: () => void;
 }
 
 interface MenuItem {
@@ -48,7 +50,7 @@ const menuItems: MenuItem[] = [
     requiresAuth: true,
   },
   { label: 'RH', icon: UsersIcon, view: 'RH', requiresAuth: true },
-  { label: 'Financeiro', icon: ChartBarIcon, view: 'Financeiro', requiresAuth: true },
+
   { label: 'Compras', icon: ShoppingCartIcon, view: 'Compras', requiresAuth: true },
   { label: 'Pedagógico', icon: AcademicCapIcon, view: 'Pedagógico', requiresAuth: true },
   { label: 'Nativos', icon: ProductsIcon, view: 'Nativos', requiresAuth: true },
@@ -65,9 +67,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLoginClick,
   onLogoutClick,
   onEditProfileClick,
+  onNotificationsClick,
 }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLLIElement>(null);
   const visibleMenuItems = currentUser
     ? menuItems
     : menuItems.filter((item) => !item.requiresAuth);
@@ -118,28 +121,18 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </button>
 
-      <div className="mb-8 flex items-center justify-between px-2">
-        <div
-          className={`flex items-center ${
-            isCollapsed ? 'w-full justify-center' : ''
+      <div className="relative mb-8 flex h-10 items-center justify-center">
+        <img
+          src="https://iconecolegioecurso.com.br/wp-content/uploads/2022/08/xlogo_icone_site.png.pagespeed.ic_.QgXP3GszLC.webp"
+          alt="Ícone Colégio e Curso"
+          className={`object-contain transition-all duration-200 ${
+            isCollapsed ? 'h-8 w-8' : 'h-12 w-auto'
           }`}
-        >
-          <img
-            src="https://storage.googleapis.com/ecdt-logo-saida/a73fc637322495f3f7b01b605cd08ed04de92a0064a63bf7ab8c77c23388db0a/ICONE-COLEGIO-E-CURSO.webp"
-            alt="Ícone Colégio e Curso"
-            className="h-8 w-auto flex-shrink-0"
-          />
-          <span
-            className={`ml-3 overflow-hidden text-lg font-bold text-slate-800 transition-all duration-200 dark:text-slate-100 ${
-              isCollapsed ? 'w-0 opacity-0' : 'opacity-100'
-            }`}
-          >
-            PORTAL ÍCONE
-          </span>
-        </div>
-        {!isCollapsed && (
+        />
+        {currentUser && !isCollapsed && (
           <button
-            className="rounded-full p-1 text-slate-500 transition hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
+            onClick={onNotificationsClick}
+            className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-500 transition hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
             aria-label="Notificações"
           >
             <BellIcon className="h-6 w-6" />
@@ -301,6 +294,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     )}
                     <li>
                       <button
+                        onClick={() => {
+                          onNotificationsClick();
+                          setIsSettingsOpen(false);
+                        }}
                         className="flex w-full items-center rounded-lg px-2 py-2 text-left text-slate-700 transition hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-700"
                         role="menuitem"
                       >
@@ -333,5 +330,3 @@ const Sidebar: React.FC<SidebarProps> = ({
 };
 
 export default Sidebar;
-
-

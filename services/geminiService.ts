@@ -2,13 +2,17 @@
 import { GoogleGenAI } from "@google/genai";
 import type { GeminiSearchResult, SearchResultSource } from '../types';
 
-// Ensure the API key is available in the environment variables
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+const apiKey = process.env.API_KEY;
+
 if (!apiKey) {
-  throw new Error("Missing VITE_GEMINI_API_KEY environment variable.");
+  console.warn("Missing process.env.API_KEY environment variable for Gemini API. Chat features may not work.");
 }
 
-const ai = new GoogleGenAI({ apiKey });
+// Initialize even if key is missing to allow app to load, but calls will fail if key is still missing at runtime.
+// We use a fallback string only if we really need to avoid initialization error, 
+// but typically the SDK handles empty string by throwing on request, which we catch.
+const ai = new GoogleGenAI({ apiKey: apiKey || '' });
 
 /**
  * Sends a prompt to the Gemini API and returns the text response.
@@ -16,6 +20,9 @@ const ai = new GoogleGenAI({ apiKey });
  * @returns The generated text from the model.
  */
 export async function askGemini(prompt: string): Promise<string> {
+  if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
+      return "Erro: Chave de API do Gemini não configurada ou inválida.";
+  }
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -41,6 +48,9 @@ export async function askGemini(prompt: string): Promise<string> {
  * @returns The generated summary and a list of sources.
  */
 export async function searchGoogleWithGemini(query: string): Promise<GeminiSearchResult> {
+  if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
+      return { summary: "Erro: Chave de API do Gemini não configurada.", sources: [] };
+  }
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

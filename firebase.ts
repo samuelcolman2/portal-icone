@@ -1,3 +1,4 @@
+
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
@@ -7,25 +8,23 @@ import { getFirestore } from "firebase/firestore";
 
 const firebaseApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
 const firebaseDatabaseUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL;
-
-if (!firebaseApiKey) {
-  throw new Error("Missing VITE_FIREBASE_API_KEY environment variable.");
-}
-
-if (!firebaseDatabaseUrl) {
-  throw new Error("Missing VITE_FIREBASE_DATABASE_URL environment variable.");
-}
+const firebaseProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+const firebaseAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+const firebaseStorageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+const firebaseMessagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
+const firebaseAppId = import.meta.env.VITE_FIREBASE_APP_ID;
+const firebaseMeasurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: firebaseApiKey,
-  authDomain: "portal-icone-4eb8e.firebaseapp.com",
+  authDomain: firebaseAuthDomain,
   databaseURL: firebaseDatabaseUrl,
-  projectId: "portal-icone-4eb8e",
-  storageBucket: "portal-icone-4eb8e.firebasestorage.app",
-  messagingSenderId: "289992630080",
-  appId: "1:289992630080:web:3cbe972721d22c6ec824a5",
-  measurementId: "G-58YNBK8ZC4"
+  projectId: firebaseProjectId,
+  storageBucket: firebaseStorageBucket,
+  messagingSenderId: firebaseMessagingSenderId,
+  appId: firebaseAppId,
+  measurementId: firebaseMeasurementId
 };
 
 // Initialize Firebase

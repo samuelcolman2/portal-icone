@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Announcements from './components/Announcements';
+import AnnouncementsModal from './components/AnnouncementsModal';
+import AnnouncementViewsModal from './components/AnnouncementViewsModal';
 import TeamDirectory from './components/TeamDirectory';
 import GeminiAssistant from './components/GeminiAssistant';
 import Home from './components/Home';
 import RhView from './components/RhView';
 import PedagogicalView from './components/PedagogicalView';
 import NativosView from './components/NativosView';
-import FinanceiroView from './components/FinanceiroView';
+
 import ComprasView from './components/ComprasView';
 import TecnologiaView from './components/TecnologiaView';
 import AdminView from './components/AdminView';
@@ -17,11 +20,23 @@ import ForgotPasswordModal from './components/ForgotPasswordModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
 import EditProfileModal from './components/EditProfileModal';
 import BirthdayModal from './components/BirthdayModal';
-import type { CustomUser, SignUpData } from './types';
+import type { Announcement, CustomUser, SignUpData } from './types';
 import { logout as logoutService, signUp as signUpService } from './services/authService';
 import { ensureUserProfileDocument, listenToUserAccess } from './services/userProfileService';
+import { formatAnnouncementDate } from './utils/dateHelpers';
+import { createAnnouncement, listenToAnnouncements, addAnnouncementView } from './services/announcementService';
 
-type ModalType = 'login' | 'signup' | 'forgotPassword' | 'resetPassword' | 'editProfile' | 'birthday' | null;
+type ModalType =
+  | 'login'
+  | 'signup'
+  | 'forgotPassword'
+  | 'resetPassword'
+  | 'editProfile'
+  | 'birthday'
+  | 'announcements'
+  | null;
+
+const ANNOUNCEMENTS_STORAGE_KEY = 'portalAnnouncements';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState('Home');
@@ -36,6 +51,34 @@ const App: React.FC = () => {
   const [signUpData, setSignUpData] = useState<Omit<SignUpData, 'birthday'> | null>(null);
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementViewsId, setAnnouncementViewsId] = useState<string | null>(null);
+  const [hasOpenedNotifications, setHasOpenedNotifications] = useState(false);
+  const viewerId = currentUser?.email ?? null;
+  const viewerName = currentUser?.displayName ?? currentUser?.email ?? 'Visitante';
+  const viewerPhoto = currentUser?.photoURL ?? null;
+
+  useEffect(() => {
+    const unsubscribe = listenToAnnouncements((data) => {
+      setAnnouncements(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const markAnnouncementsViewed = useCallback(() => {
+    if (!viewerId) return;
+    announcements.forEach((announcement) => {
+      const views = announcement.views ?? [];
+      if (!views.some((view) => view.viewerId === viewerId)) {
+        addAnnouncementView(announcement.id, {
+          viewerId,
+          name: viewerName,
+          photoURL: viewerPhoto,
+          viewedAt: new Date().toISOString(),
+        });
+      }
+    });
+  }, [announcements, viewerId, viewerName, viewerPhoto]);
 
   const handleLoginSuccess = (user: CustomUser) => {
     setCurrentUser(user);
@@ -43,7 +86,7 @@ const App: React.FC = () => {
     localStorage.setItem('currentUser', JSON.stringify(user));
     closeModal();
   };
-  
+
   const handleProfileUpdate = (updatedUser: CustomUser) => {
     setCurrentUser(updatedUser);
     localStorage.setItem('currentUser', JSON.stringify(updatedUser));
@@ -57,10 +100,13 @@ const App: React.FC = () => {
         if (storedUser) {
           const parsed: CustomUser = JSON.parse(storedUser);
           const enriched = await ensureUserProfileDocument(parsed);
-          if (enriched.isActive === false) {
+          if (enriched.isActive === false || enriched.role === 'pendente') {
             await logoutService();
             localStorage.removeItem('currentUser');
             setCurrentUser(null);
+            if (enriched.role === 'pendente') {
+              alert('Seu cadastro ainda está pendente de aprovação. Aguarde um administrador liberar o acesso.');
+            }
             return;
           }
           setCurrentUser(enriched);
@@ -75,7 +121,27 @@ const App: React.FC = () => {
     };
     checkAuth();
   }, []);
-  
+
+  useEffect(() => {
+    if (!currentUser) {
+      setHasOpenedNotifications(false);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (activeModal === 'announcements' && hasOpenedNotifications && currentUser) {
+      markAnnouncementsViewed();
+    }
+  }, [activeModal, hasOpenedNotifications, currentUser, markAnnouncementsViewed]);
+
+  useEffect(() => {
+    if (announcementViewsId === null) return;
+    const exists = announcements.some((item) => item.id === announcementViewsId);
+    if (!exists) {
+      setAnnouncementViewsId(null);
+    }
+  }, [announcements, announcementViewsId]);
+
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -94,11 +160,12 @@ const App: React.FC = () => {
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
-  
+
   const handleLogout = useCallback(
     async (reason?: string) => {
       await logoutService();
       setCurrentUser(null);
+      setHasOpenedNotifications(false);
       setActiveView('Home');
       if (reason) {
         alert(reason);
@@ -109,9 +176,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser?.email) return;
-    const unsubscribe = listenToUserAccess(currentUser.email, (isActive) => {
-      if (!isActive) {
-        handleLogout('Seu acesso foi revogado.');
+    const unsubscribe = listenToUserAccess(currentUser.email, ({ hasAccess, reason }) => {
+      if (!hasAccess) {
+        const message =
+          reason === 'pending'
+            ? 'Seu cadastro está pendente de aprovação. Aguarde até que um administrador libere o acesso.'
+            : 'Seu acesso foi revogado.';
+        handleLogout(message);
       }
     });
     return () => {
@@ -130,7 +201,7 @@ const App: React.FC = () => {
     setSignUpError(null);
     setIsSigningUp(false);
   };
-  
+
   const handleResetRequestSuccess = (email: string) => {
     setResetEmail(email);
     openModal('resetPassword');
@@ -150,6 +221,11 @@ const App: React.FC = () => {
     try {
       const finalSignUpData: SignUpData = { ...signUpData, birthday };
       const newUser = await signUpService(finalSignUpData);
+      if (newUser.role === 'pendente') {
+        closeModal();
+        alert('Cadastro enviado! Aguarde um administrador aprovar seu acesso.');
+        return;
+      }
       handleLoginSuccess(newUser);
     } catch (err: any) {
       setSignUpError(err.message || 'Falha ao criar conta. Tente novamente.');
@@ -157,6 +233,41 @@ const App: React.FC = () => {
       setIsSigningUp(false);
     }
   };
+
+  // ... (rest of the component)
+
+  const handleCreateAnnouncement = async ({ title, content }: { title: string; content: string }) => {
+    const author = currentUser?.displayName || currentUser?.email || 'Portal Ícone';
+    const authorPhotoURL = currentUser?.photoURL || null;
+    try {
+      await createAnnouncement(title, content, author, authorPhotoURL);
+    } catch (error) {
+      console.error("Failed to create announcement", error);
+      alert("Erro ao criar comunicado. Tente novamente.");
+    }
+  };
+
+  const handleNotificationsClick = () => {
+    if (!currentUser) return;
+    setHasOpenedNotifications(true);
+    openModal('announcements');
+  };
+
+  const handleOpenAnnouncementViews = (id: string) => {
+    if (!currentUser || !hasOpenedNotifications) return;
+    setAnnouncementViewsId(id);
+  };
+
+  const handleCloseAnnouncementViews = () => {
+    setAnnouncementViewsId(null);
+  };
+
+  const announcementForViews = useMemo(() => {
+    if (announcementViewsId === null) return null;
+    return announcements.find((item) => item.id === announcementViewsId) ?? null;
+  }, [announcementViewsId, announcements]);
+
+  const canSeeViewCounts = Boolean(currentUser && hasOpenedNotifications);
 
 
   if (authLoading) {
@@ -180,6 +291,7 @@ const App: React.FC = () => {
         onLoginClick={() => openModal('login')}
         onLogoutClick={handleLogout}
         onEditProfileClick={() => openModal('editProfile')}
+        onNotificationsClick={handleNotificationsClick}
       />
       <main className="flex-1 flex flex-col overflow-y-auto">
         {activeView === 'Home' ? (
@@ -188,8 +300,7 @@ const App: React.FC = () => {
           <AdminView currentUser={currentUser} />
         ) : activeView === 'RH' ? (
           <RhView />
-        ) : activeView === 'Financeiro' ? (
-          <FinanceiroView />
+
         ) : activeView === 'Compras' ? (
           <ComprasView />
         ) : activeView === 'Pedagógico' ? (
@@ -202,12 +313,16 @@ const App: React.FC = () => {
           <div className="flex-1 p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 <div className="md:col-span-2">
                   <GeminiAssistant />
                 </div>
 
-                <Announcements />
+                <Announcements
+                  announcements={announcements}
+                  onViewersClick={handleOpenAnnouncementViews}
+                  canSeeViews={canSeeViewCounts}
+                />
                 <TeamDirectory />
 
               </div>
@@ -217,26 +332,44 @@ const App: React.FC = () => {
       </main>
 
       {activeModal === 'login' && (
-        <LoginModal 
-          onClose={closeModal} 
+        <LoginModal
+          onClose={closeModal}
           onLoginSuccess={handleLoginSuccess}
           onSignUpClick={() => openModal('signup')}
           onForgotPasswordClick={() => openModal('forgotPassword')}
         />
       )}
       {activeModal === 'signup' && (
-        <SignUpModal 
+        <SignUpModal
           onClose={closeModal}
           onSignUpDetails={handleSignUpDetails}
           onLoginClick={() => openModal('login')}
         />
       )}
-       {activeModal === 'birthday' && (
+      {activeModal === 'announcements' && (
+        <AnnouncementsModal
+          announcements={announcements}
+          onCreateAnnouncement={handleCreateAnnouncement}
+          authorName={currentUser?.displayName || currentUser?.email || 'Portal Ícone'}
+          authorPhotoURL={currentUser?.photoURL}
+          canSeeViews={canSeeViewCounts}
+          onViewersClick={handleOpenAnnouncementViews}
+          onClose={closeModal}
+          userRole={currentUser?.role}
+        />
+      )}
+      {activeModal === 'birthday' && (
         <BirthdayModal
           onClose={closeModal}
           onSave={handleSaveBirthdayAndSignUp}
           isLoading={isSigningUp}
           error={signUpError}
+        />
+      )}
+      {canSeeViewCounts && announcementForViews && (
+        <AnnouncementViewsModal
+          announcement={announcementForViews}
+          onClose={handleCloseAnnouncementViews}
         />
       )}
       {activeModal === 'forgotPassword' && (

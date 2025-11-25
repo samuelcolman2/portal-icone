@@ -6,14 +6,14 @@ import { SearchIcon } from './IconComponents';
 import type { CustomUser } from '../types';
 
 declare global {
-  interface Window {
-    google?: any;
-    __gcse?: any;
-  }
+    interface Window {
+        google?: any;
+        __gcse?: any;
+    }
 }
 
 const CSE_SCRIPT_ID = 'gcse-script';
-const CSE_ID = 'e04673d07373944ab';
+const CSE_ID = import.meta.env.VITE_GOOGLE_CSE_ID;
 const CSE_ELEMENT_GNAME = 'portal-search-results';
 const CSE_CUSTOM_STYLE_ID = 'gcse-dark-style';
 const CSE_CUSTOM_STYLES = `
@@ -262,22 +262,33 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
     );
 
     const renderSearchElement = useCallback(() => {
-        const googleObj = window.google;
-        const cseElement = googleObj?.search?.cse?.element;
-        if (!cseElement) {
+        try {
+            const googleObj = window.google;
+            const cseElement = googleObj?.search?.cse?.element;
+            if (!cseElement) {
+                return false;
+            }
+            // Use a try-catch block specifically for the render call as it might fail if called rapidly
+            try {
+                if (!cseElement.getElement(CSE_ELEMENT_GNAME)) {
+                    cseElement.render(
+                        {
+                            div: 'portal-search-results',
+                            tag: 'searchresults-only',
+                            gname: CSE_ELEMENT_GNAME,
+                        },
+                        undefined,
+                    );
+                }
+                return true;
+            } catch (renderError) {
+                console.warn("Google CSE render attempted but failed:", renderError);
+                return false;
+            }
+        } catch (e) {
+            console.error("Error accessing Google CSE:", e);
             return false;
         }
-        if (!cseElement.getElement(CSE_ELEMENT_GNAME)) {
-            cseElement.render(
-                {
-                    div: 'portal-search-results',
-                    tag: 'searchresults-only',
-                    gname: CSE_ELEMENT_GNAME,
-                },
-                undefined,
-            );
-        }
-        return true;
     }, []);
 
     useEffect(() => {
@@ -298,7 +309,8 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
 
         if (document.getElementById(CSE_SCRIPT_ID)) {
             ensureCustomStyles();
-            renderSearchElement();
+            // Delay render slightly to ensure DOM is ready after re-mount
+            setTimeout(renderSearchElement, 100);
             return;
         }
 
@@ -325,21 +337,25 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                 window.open(searchUrl, '_blank', 'noopener,noreferrer');
             };
 
-            const googleObj = window.google;
-            let cseElement = googleObj?.search?.cse?.element;
-            if (!cseElement) {
-                const rendered = renderSearchElement();
-                if (rendered) {
-                    cseElement = window.google?.search?.cse?.element;
+            try {
+                const googleObj = window.google;
+                let cseElement = googleObj?.search?.cse?.element;
+                if (!cseElement) {
+                    const rendered = renderSearchElement();
+                    if (rendered) {
+                        cseElement = window.google?.search?.cse?.element;
+                    }
                 }
-            }
-            if (cseElement) {
-                const element = cseElement.getElement(CSE_ELEMENT_GNAME);
-                if (element) {
-                    element.execute(sanitizedTerm);
-                    setHasResults(true);
-                    return true;
+                if (cseElement) {
+                    const element = cseElement.getElement(CSE_ELEMENT_GNAME);
+                    if (element) {
+                        element.execute(sanitizedTerm);
+                        setHasResults(true);
+                        return true;
+                    }
                 }
+            } catch (e) {
+                console.warn("Google CSE execute failed, falling back", e);
             }
 
             openFallbackSearch();
@@ -542,26 +558,26 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
             </header>
 
             <main
-                className={`flex-grow flex flex-col items-center px-4 transition-all duration-300 ${
-                    showHero ? 'justify-center pb-20' : 'justify-start'
-                }`}
+                className={`flex-grow flex flex-col items-center px-4 transition-all duration-300 ${showHero ? 'justify-center pb-20' : 'justify-start'
+                    }`}
                 style={{
-                    marginTop: showHero ? 0 : '-3rem',
+                    // Use min-height to ensure it pushes footer down if needed, or use flex-grow properly
+                    marginTop: showHero ? 0 : '0', // Reset margin top manipulation to avoid layout breaking
+                    paddingTop: showHero ? '0' : '2rem', // Add top padding when results shown instead of negative margin
                 }}
             >
                 {showHero && (
-                    <img 
-                        className="h-24 w-auto mb-8" 
-                        src={logoUrl} 
-                        alt="Ícone Logo" 
+                    <img
+                        className="h-24 w-auto mb-8"
+                        src={logoUrl}
+                        alt="Ícone Logo"
                     />
                 )}
-                
-                <form 
+
+                <form
                     onSubmit={handleSearch}
-                    className={`w-full ${
-                        showHero ? 'sm:max-w-xl md:max-w-2xl' : 'sm:max-w-2xl md:max-w-3xl'
-                    } transition-all duration-300`}
+                    className={`w-full ${showHero ? 'sm:max-w-xl md:max-w-2xl' : 'sm:max-w-2xl md:max-w-3xl'
+                        } transition-all duration-300`}
                 >
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -610,9 +626,8 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                                         id={`suggestion-option-${index}`}
                                         role="option"
                                         aria-selected={highlightIndex === index}
-                                        className={`cursor-pointer px-4 py-3 text-slate-200 hover:bg-[#1c243a] ${
-                                            highlightIndex === index ? 'bg-[#1c243a]' : ''
-                                        }`}
+                                        className={`cursor-pointer px-4 py-3 text-slate-200 hover:bg-[#1c243a] ${highlightIndex === index ? 'bg-[#1c243a]' : ''
+                                            }`}
                                         onMouseDown={(event) => {
                                             event.preventDefault();
                                             handleSuggestionSelect(item);
@@ -645,9 +660,8 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
 
                 {currentUser && (
                     <section
-                        className={`w-full ${
-                            showHero ? 'sm:max-w-xl md:max-w-2xl' : 'sm:max-w-2xl md:max-w-3xl'
-                        } mt-8`}
+                        className={`w-full ${showHero ? 'sm:max-w-xl md:max-w-2xl' : 'sm:max-w-2xl md:max-w-3xl'
+                            } mt-8`}
                     >
                         <div className={`flex flex-wrap gap-4 ${showHero ? 'justify-center' : ''}`}>
                             {shortcuts.map((shortcut) => (
@@ -708,7 +722,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                                     )}
                                 </div>
                             ))}
-                            
+
                         </div>
                     </section>
                 )}
@@ -716,9 +730,8 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                 <div className="w-full sm:max-w-2xl md:max-w-3xl mt-10">
                     <div
                         id="portal-search-results"
-                        className={`rounded-3xl bg-[#0F172A] p-4 text-left text-gray-100 shadow-2xl ${
-                            hasResults ? 'block max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar' : 'hidden'
-                        }`}
+                        className={`rounded-3xl bg-[#0F172A] p-4 text-left text-gray-100 shadow-2xl ${hasResults ? 'block max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar' : 'hidden'
+                            }`}
                         data-gname={CSE_ELEMENT_GNAME}
                     />
                 </div>

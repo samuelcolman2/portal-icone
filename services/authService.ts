@@ -1,13 +1,10 @@
+
 import type { SignUpData, SignInData, CustomUser, ConfirmResetData, UpdateProfileData } from '../types';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { ensureUserProfileDocument, persistUserPhoto } from './userProfileService';
 
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
-
-if (!APPS_SCRIPT_URL) {
-    throw new Error('Missing VITE_APPS_SCRIPT_URL environment variable.');
-}
 
 /**
  * Hashes a string using SHA-256.
@@ -121,6 +118,9 @@ export const signIn = async ({ email, password }: SignInData): Promise<CustomUse
     const enriched = await ensureUserProfileDocument(data.user);
     if (enriched.isActive === false) {
       throw new Error('Seu acesso está suspenso. Procure um administrador.');
+    }
+    if (enriched.role === 'pendente') {
+      throw new Error('Seu cadastro está pendente de aprovação. Aguarde um administrador liberar seu acesso.');
     }
     return enriched;
 };

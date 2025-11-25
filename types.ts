@@ -1,4 +1,5 @@
-export type UserRole = 'user' | 'admin';
+
+export type UserRole = 'user' | 'admin' | 'pendente';
 
 export interface CustomUser {
   displayName: string;
@@ -17,11 +18,22 @@ export interface TeamMember {
   avatarUrl: string;
 }
 
+export interface AnnouncementView {
+  viewerId: string;
+  name: string;
+  photoURL?: string | null;
+  viewedAt: string;
+}
+
 export interface Announcement {
-  id: number;
+  id: string;
   title: string;
   content: string;
   date: string;
+  author?: string;
+  authorPhotoURL?: string | null;
+  views?: AnnouncementView[];
+  createdAt: number;
 }
 
 export interface QuickLink {

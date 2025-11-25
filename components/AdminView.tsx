@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import type { CustomUser } from '../types';
+import type { CustomUser, UserRole } from '../types';
 import {
   listenToUsers,
   updateUserAccess,
+  updateUserRole,
 } from '../services/userProfileService';
 import { ShieldCheckIcon, UserCircleIcon } from './IconComponents';
 
@@ -15,6 +16,9 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingEmail, setUpdatingEmail] = useState<string | null>(null);
+  const [roleUpdatingEmail, setRoleUpdatingEmail] = useState<string | null>(
+    null,
+  );
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -45,6 +49,21 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser }) => {
       );
     } finally {
       setUpdatingEmail(null);
+    }
+  };
+
+  const handleRoleChange = async (user: CustomUser, role: UserRole) => {
+    if (!user.email || user.role === role) return;
+    setError(null);
+    setRoleUpdatingEmail(user.email);
+    try {
+      await updateUserRole(user.email, role);
+    } catch (err: any) {
+      setError(
+        err?.message || 'Não foi possível atualizar o papel no momento.',
+      );
+    } finally {
+      setRoleUpdatingEmail(null);
     }
   };
 
@@ -105,11 +124,10 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser }) => {
                 return (
                   <li
                     key={user.email}
-                    className={`flex items-center justify-between px-6 py-4 text-sm ${
-                      isLast ? '' : 'border-b border-white/10'
-                    }`}
+                    className={`flex flex-col gap-4 px-6 py-4 text-sm sm:flex-row sm:items-center sm:justify-between ${isLast ? '' : 'border-b border-white/10'
+                      }`}
                   >
-                    <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
                       {user.photoURL ? (
                         <img
                           src={user.photoURL}
@@ -121,13 +139,40 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser }) => {
                           <UserCircleIcon className="h-6 w-6" />
                         </div>
                       )}
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold text-white">
-                          {user.displayName || user.email}
-                        </p>
-                        <p className="truncate text-xs text-slate-400">
-                          {user.email}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex flex-col">
+                            <p className="truncate text-base font-semibold text-white">
+                              {user.displayName || user.email}
+                            </p>
+                            <p className="truncate text-xs text-slate-400">
+                              {user.email}
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-400 sm:flex-row sm:items-center">
+                            <span className="text-[0.65rem] text-slate-500">
+                              Papel
+                            </span>
+                            <select
+                              value={user.role ?? 'user'}
+                              onChange={(event) =>
+                                handleRoleChange(
+                                  user,
+                                  event.target.value as UserRole,
+                                )
+                              }
+                              disabled={
+                                roleUpdatingEmail === user.email ||
+                                user.email === currentUser?.email
+                              }
+                              className="w-full rounded-lg border border-white/10 bg-[#1F2A40] px-3 py-2 text-xs font-semibold text-white outline-none transition hover:border-orange-400 focus:border-orange-400 sm:w-40"
+                            >
+                              <option value="pendente">Pendente</option>
+                              <option value="user">Usuário</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -135,19 +180,16 @@ const AdminView: React.FC<AdminViewProps> = ({ currentUser }) => {
                       type="button"
                       onClick={() => handleToggle(user)}
                       disabled={disabled || updatingEmail === user.email}
-                      className={`relative inline-flex h-6 w-12 items-center rounded-full transition ${
-                        isActive ? 'bg-[#FF7600]' : 'bg-slate-500/60'
-                      } ${
-                        disabled || updatingEmail === user.email
+                      className={`relative inline-flex h-6 w-12 items-center self-start rounded-full transition sm:self-auto ${isActive ? 'bg-[#FF7600]' : 'bg-slate-500/60'
+                        } ${disabled || updatingEmail === user.email
                           ? 'opacity-60'
                           : ''
-                      }`}
+                        }`}
                       aria-label={`Alternar acesso para ${user.email}`}
                     >
                       <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-                          isActive ? 'translate-x-6' : 'translate-x-1'
-                        }`}
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${isActive ? 'translate-x-6' : 'translate-x-1'
+                          }`}
                       />
                     </button>
                   </li>
