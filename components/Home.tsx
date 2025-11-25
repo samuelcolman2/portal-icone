@@ -13,7 +13,7 @@ declare global {
 }
 
 const CSE_SCRIPT_ID = 'gcse-script';
-const CSE_ID = import.meta.env.VITE_GOOGLE_CSE_ID;
+const CSE_ID = 'e04673d07373944ab';
 const CSE_ELEMENT_GNAME = 'portal-search-results';
 const CSE_CUSTOM_STYLE_ID = 'gcse-dark-style';
 const CSE_CUSTOM_STYLES = `
