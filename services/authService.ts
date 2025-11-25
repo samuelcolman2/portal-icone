@@ -4,7 +4,7 @@ import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { ensureUserProfileDocument, persistUserPhoto } from './userProfileService';
 
-const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzENVKNAqCA95Ofv4urTkC5w6Eqj8q4JUtIfw0TM1j-QuT3x94PpR2gsdZkeieycNNupw/exec';
 
 /**
  * Hashes a string using SHA-256.
@@ -12,10 +12,10 @@ const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
  * @returns A promise that resolves to the hex-encoded hash.
  */
 async function sha256(str: string): Promise<string> {
-  const buffer = new TextEncoder().encode(str);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const buffer = new TextEncoder().encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 
@@ -47,7 +47,7 @@ async function handleResponse(response: Response) {
     } catch (e) {
         console.error("Failed to parse JSON response or invalid response structure:", text, e);
         if (e instanceof Error) {
-           throw e;
+            throw e;
         }
         throw new Error('Resposta inválida do servidor.');
     }
@@ -71,7 +71,7 @@ async function postToAppsScript(payload: object): Promise<any> {
         return handleResponse(response);
     } catch (error) {
         if (error instanceof TypeError) {
-             throw new Error('Falha na comunicação com o servidor. Verifique se o backend está configurado para aceitar requisições (CORS) e se a função doPost está implementada no Google Apps Script.');
+            throw new Error('Falha na comunicação com o servidor. Verifique se o backend está configurado para aceitar requisições (CORS) e se a função doPost está implementada no Google Apps Script.');
         }
         throw error;
     }
@@ -90,13 +90,13 @@ export const signUp = async ({ name, email, password, birthday }: SignUpData): P
         passwordHash,
         birthday,
     });
-    
+
     if (!data.user) {
-      throw new Error(data.msg || "Ocorreu um erro ao criar a conta.");
+        throw new Error(data.msg || "Ocorreu um erro ao criar a conta.");
     }
     const enriched = await ensureUserProfileDocument(data.user);
     if (enriched.isActive === false) {
-      throw new Error('Seu acesso está suspenso. Procure um administrador.');
+        throw new Error('Seu acesso está suspenso. Procure um administrador.');
     }
     return enriched;
 };
@@ -113,14 +113,14 @@ export const signIn = async ({ email, password }: SignInData): Promise<CustomUse
         passwordHash,
     });
     if (!data.user) {
-      throw new Error(data.msg || "Ocorreu um erro ao fazer login.");
+        throw new Error(data.msg || "Ocorreu um erro ao fazer login.");
     }
     const enriched = await ensureUserProfileDocument(data.user);
     if (enriched.isActive === false) {
-      throw new Error('Seu acesso está suspenso. Procure um administrador.');
+        throw new Error('Seu acesso está suspenso. Procure um administrador.');
     }
     if (enriched.role === 'pendente') {
-      throw new Error('Seu cadastro está pendente de aprovação. Aguarde um administrador liberar seu acesso.');
+        throw new Error('Seu cadastro está pendente de aprovação. Aguarde um administrador liberar seu acesso.');
     }
     return enriched;
 };
@@ -133,7 +133,7 @@ export const updateProfile = async (updateData: UpdateProfileData): Promise<Cust
         action: 'updateProfile',
         email: updateData.email,
     };
-    
+
     let hasUpdate = false;
     // Use 'in' operator to check for presence, allowing for empty strings or null values to be sent
     if ('displayName' in updateData) {
@@ -152,7 +152,7 @@ export const updateProfile = async (updateData: UpdateProfileData): Promise<Cust
         payload.cpf = updateData.cpf;
         hasUpdate = true;
     }
-    
+
     if (!hasUpdate) {
         throw new Error("Nenhuma informação foi enviada para atualização.");
     }
@@ -202,10 +202,10 @@ export const confirmPasswordReset = async ({ email, code, newPassword }: Confirm
  * Logs the user out by clearing local session data and signing out from Firebase.
  */
 export const logout = async (): Promise<void> => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error("Error signing out from Firebase:", error);
-  }
-  localStorage.removeItem('currentUser');
+    try {
+        await signOut(auth);
+    } catch (error) {
+        console.error("Error signing out from Firebase:", error);
+    }
+    localStorage.removeItem('currentUser');
 };

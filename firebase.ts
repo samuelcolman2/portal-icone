@@ -6,14 +6,14 @@ import { getAnalytics } from "firebase/analytics";
 import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
 
-const firebaseApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-const firebaseDatabaseUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL;
-const firebaseProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-const firebaseAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
-const firebaseStorageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
-const firebaseMessagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
-const firebaseAppId = import.meta.env.VITE_FIREBASE_APP_ID;
-const firebaseMeasurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
+const firebaseApiKey = "AIzaSyBvqdLc9Bw84wZp1G63GKVMZB1dyc4XkdA";
+const firebaseDatabaseUrl = "https://portal-icone-4eb8e-default-rtdb.firebaseio.com";
+const firebaseProjectId = "portal-icone-4eb8e";
+const firebaseAuthDomain = "portal-icone-4eb8e.firebaseapp.com";
+const firebaseStorageBucket = "portal-icone-4eb8e.firebasestorage.app";
+const firebaseMessagingSenderId = "289992630080";
+const firebaseAppId = "1:289992630080:web:3cbe972721d22c6ec824a5";
+const firebaseMeasurementId = "G-58YNBK8ZC4";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
